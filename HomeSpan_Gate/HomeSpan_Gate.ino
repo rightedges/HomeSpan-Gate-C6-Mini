@@ -31,8 +31,8 @@ struct GateController : Service::GarageDoorOpener {
     target = new Characteristic::TargetDoorState(1);    // 1 = Closed
     obstruction = new Characteristic::ObstructionDetected(false);
 
-    pinMode(RELAY_PIN, OUTPUT);
-    digitalWrite(RELAY_PIN, HIGH);  // Relay OFF (Active Low)
+    digitalWrite(RELAY_PIN, HIGH);  // Set HIGH first to prevent boot glitch (Active Low)
+    pinMode(RELAY_PIN, OUTPUT);     // Then set as output
     pinMode(REED_SENSOR_PIN, INPUT_PULLUP);
 
     WEBLOG("Gate Controller: Initialized and ready.");
