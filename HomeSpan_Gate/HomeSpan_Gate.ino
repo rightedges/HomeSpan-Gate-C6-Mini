@@ -31,8 +31,9 @@ struct GateController : Service::GarageDoorOpener {
     target = new Characteristic::TargetDoorState(1);    // 1 = Closed
     obstruction = new Characteristic::ObstructionDetected(false);
 
-    pinMode(RELAY_PIN, OUTPUT);
-    digitalWrite(RELAY_PIN, HIGH);  // Ensure Relay is OFF (Active Low)
+    // Initialize Relay to OFF using High-Impedance (INPUT) mode
+    // This prevents 3.3V/5V leakage and avoids Arduino pinMode glitches
+    pinMode(RELAY_PIN, INPUT);
     pinMode(REED_SENSOR_PIN, INPUT_PULLUP);
 
     WEBLOG("Gate Controller: Initialized and ready.");
@@ -105,8 +106,8 @@ struct GateController : Service::GarageDoorOpener {
         // Flash logic DISABLED for native LED test
       } else {
         // Pulse Complete
-        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay HIGH. Elapsed: %lu\n", millis(), elapsed);
-        digitalWrite(RELAY_PIN, HIGH);  // Relay OFF
+        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay HIGH (INPUT). Elapsed: %lu\n", millis(), elapsed);
+        pinMode(RELAY_PIN, INPUT);  // Float pin to turn Relay OFF
         pulseStartTime = 0;
         WEBLOG("Relay pulse complete.");
       }
@@ -122,7 +123,8 @@ struct GateController : Service::GarageDoorOpener {
   void triggerRelay() {
     Serial.printf("[%lu] DEBUG: triggerRelay() called. PIN %d state before: %d\n", millis(), RELAY_PIN, digitalRead(RELAY_PIN));
     WEBLOG("Pulsing relay...");
-    digitalWrite(RELAY_PIN, LOW);  // Relay ON
+    digitalWrite(RELAY_PIN, LOW);  // Prepare LOW
+    pinMode(RELAY_PIN, OUTPUT);    // Relay ON (Pull to GND)
     pulseStartTime = millis();
     if (pulseStartTime == 0) pulseStartTime = 1;  // Prevent 0
     Serial.printf("[%lu] DEBUG: Relay set LOW (ON). pulseStartTime set to: %lu\n", millis(), pulseStartTime);
