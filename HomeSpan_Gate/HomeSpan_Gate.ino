@@ -108,7 +108,7 @@ struct GateController : Service::GarageDoorOpener {
       } else {
         // Pulse Complete
         Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay HIGH. Elapsed: %lu\n", millis(), elapsed);
-        digitalWrite(RELAY_PIN, HIGH);  // Relay OFF
+        gpio_set_level((gpio_num_t)RELAY_PIN, 1);  // Relay OFF
         pulseStartTime = 0;
         WEBLOG("Relay pulse complete.");
       }
@@ -124,7 +124,7 @@ struct GateController : Service::GarageDoorOpener {
   void triggerRelay() {
     Serial.printf("[%lu] DEBUG: triggerRelay() called. PIN %d state before: %d\n", millis(), RELAY_PIN, digitalRead(RELAY_PIN));
     WEBLOG("Pulsing relay...");
-    digitalWrite(RELAY_PIN, LOW);  // Relay ON (Active-Low)
+    gpio_set_level((gpio_num_t)RELAY_PIN, 0);  // Relay ON (Active-Low)
     pulseStartTime = millis();
     if (pulseStartTime == 0) pulseStartTime = 1;  // Prevent 0
     Serial.printf("[%lu] DEBUG: Relay set LOW (ON). pulseStartTime set to: %lu\n", millis(), pulseStartTime);
