@@ -31,9 +31,10 @@ struct GateController : Service::GarageDoorOpener {
     target = new Characteristic::TargetDoorState(1);    // 1 = Closed
     obstruction = new Characteristic::ObstructionDetected(false);
 
-    // Initialize Relay to OFF (Active-High: LOW = OFF, HIGH = ON)
-    pinMode(RELAY_PIN, OUTPUT);
-    digitalWrite(RELAY_PIN, LOW);
+    // Initialize Relay to OFF (Active-Low: HIGH = OFF, LOW = ON)
+    // Using ESP-IDF functions guarantees NO microsecond glitches during setup
+    gpio_set_level((gpio_num_t)RELAY_PIN, 1);
+    gpio_set_direction((gpio_num_t)RELAY_PIN, GPIO_MODE_OUTPUT);
     pinMode(REED_SENSOR_PIN, INPUT_PULLUP);
 
     WEBLOG("Gate Controller: Initialized and ready.");
@@ -106,8 +107,8 @@ struct GateController : Service::GarageDoorOpener {
         // Flash logic DISABLED for native LED test
       } else {
         // Pulse Complete
-        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay LOW. Elapsed: %lu\n", millis(), elapsed);
-        digitalWrite(RELAY_PIN, LOW);  // Relay OFF
+        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay HIGH. Elapsed: %lu\n", millis(), elapsed);
+        digitalWrite(RELAY_PIN, HIGH);  // Relay OFF
         pulseStartTime = 0;
         WEBLOG("Relay pulse complete.");
       }
@@ -123,7 +124,7 @@ struct GateController : Service::GarageDoorOpener {
   void triggerRelay() {
     Serial.printf("[%lu] DEBUG: triggerRelay() called. PIN %d state before: %d\n", millis(), RELAY_PIN, digitalRead(RELAY_PIN));
     WEBLOG("Pulsing relay...");
-    digitalWrite(RELAY_PIN, HIGH);  // Relay ON (Active-High)
+    digitalWrite(RELAY_PIN, LOW);  // Relay ON (Active-Low)
     pulseStartTime = millis();
     if (pulseStartTime == 0) pulseStartTime = 1;  // Prevent 0
     Serial.printf("[%lu] DEBUG: Relay set LOW (ON). pulseStartTime set to: %lu\n", millis(), pulseStartTime);
