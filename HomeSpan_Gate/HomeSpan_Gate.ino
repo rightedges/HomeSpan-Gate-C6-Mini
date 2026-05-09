@@ -14,7 +14,6 @@ struct GateController : Service::GarageDoorOpener {
   SpanCharacteristic *obstruction;
   unsigned long pulseStartTime = 0;  // 0 means no pulse active
   unsigned long lastLoopMillis = 0;  // Throttle timer
-  unsigned long lastHeapMillis = 0;  // Heap monitor timer
 
   // Stability Hardening Variables
   int lastRawSensor = -1;
@@ -53,17 +52,14 @@ struct GateController : Service::GarageDoorOpener {
         
         // Prevent redundant pulses if the SAME command is sent while gate is delayed/preparing to move
         if (newVal == pendingTargetState && (millis() - lastCommandTime < 20000)) {
-          Serial.printf("[%lu] DEBUG: Ignoring duplicate command to %d. lastCommandTime: %lu\n", millis(), newVal, lastCommandTime);
           WEBLOG("Request ignored: Gate is already preparing to %s", newVal == 0 ? "OPEN" : "CLOSED");
         } else {
-          Serial.printf("[%lu] DEBUG: Accepting command to %d. current state: %d\n", millis(), newVal, currentState);
           pendingTargetState = newVal;
           targetUpdatePending = true;  // Signal for loop() to process
           lastCommandTime = millis();
           triggerRelay();
         }
       } else {
-        Serial.printf("[%lu] DEBUG: Ignoring command to %d, already in that state.\n", millis(), newVal);
         WEBLOG("Request ignored: Gate is already %s", newVal == 0 ? "OPEN" : "CLOSED");
       }
     }
@@ -74,13 +70,6 @@ struct GateController : Service::GarageDoorOpener {
     // 1. Throttle Logic to 100ms (10Hz) to prevent CPU starvation on C6 Mini
     if (millis() - lastLoopMillis < 100) return;
     lastLoopMillis = millis();
-
-    // Diagnostic: Print Heap every 10 seconds
-    if (millis() - lastHeapMillis > 10000) {
-      lastHeapMillis = millis();
-      Serial.printf("Diagnostics | Free Heap: %u | Min Free: %u | RSSI: %d dBm\n",
-                    ESP.getFreeHeap(), ESP.getMinFreeHeap(), WiFi.RSSI());
-    }
 
     // 2. Debounce and Sync Sensor
     int raw = digitalRead(REED_SENSOR_PIN);
@@ -107,7 +96,6 @@ struct GateController : Service::GarageDoorOpener {
         // Flash logic DISABLED for native LED test
       } else {
         // Pulse Complete
-        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay LOW. Elapsed: %lu\n", millis(), elapsed);
         gpio_set_level((gpio_num_t)RELAY_PIN, 0);  // Relay OFF
         pulseStartTime = 0;
         WEBLOG("Relay pulse complete.");
@@ -122,12 +110,10 @@ struct GateController : Service::GarageDoorOpener {
   }
 
   void triggerRelay() {
-    Serial.printf("[%lu] DEBUG: triggerRelay() called. PIN %d state before: %d\n", millis(), RELAY_PIN, digitalRead(RELAY_PIN));
     WEBLOG("Pulsing relay...");
     gpio_set_level((gpio_num_t)RELAY_PIN, 1);  // Relay ON (Active-High)
     pulseStartTime = millis();
     if (pulseStartTime == 0) pulseStartTime = 1;  // Prevent 0
-    Serial.printf("[%lu] DEBUG: Relay set LOW (ON). pulseStartTime set to: %lu\n", millis(), pulseStartTime);
   }
 
   void syncSensor() {
