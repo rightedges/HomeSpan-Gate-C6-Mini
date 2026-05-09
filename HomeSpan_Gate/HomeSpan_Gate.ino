@@ -31,8 +31,8 @@ struct GateController : Service::GarageDoorOpener {
     target = new Characteristic::TargetDoorState(1);    // 1 = Closed
     obstruction = new Characteristic::ObstructionDetected(false);
 
-    digitalWrite(RELAY_PIN, HIGH);  // Set HIGH first to prevent boot glitch (Active Low)
-    pinMode(RELAY_PIN, OUTPUT);     // Then set as output
+    pinMode(RELAY_PIN, OUTPUT);
+    digitalWrite(RELAY_PIN, HIGH);  // Ensure Relay is OFF (Active Low)
     pinMode(REED_SENSOR_PIN, INPUT_PULLUP);
 
     WEBLOG("Gate Controller: Initialized and ready.");
@@ -51,14 +51,17 @@ struct GateController : Service::GarageDoorOpener {
         
         // Prevent redundant pulses if the SAME command is sent while gate is delayed/preparing to move
         if (newVal == pendingTargetState && (millis() - lastCommandTime < 20000)) {
+          Serial.printf("[%lu] DEBUG: Ignoring duplicate command to %d. lastCommandTime: %lu\n", millis(), newVal, lastCommandTime);
           WEBLOG("Request ignored: Gate is already preparing to %s", newVal == 0 ? "OPEN" : "CLOSED");
         } else {
+          Serial.printf("[%lu] DEBUG: Accepting command to %d. current state: %d\n", millis(), newVal, currentState);
           pendingTargetState = newVal;
           targetUpdatePending = true;  // Signal for loop() to process
           lastCommandTime = millis();
           triggerRelay();
         }
       } else {
+        Serial.printf("[%lu] DEBUG: Ignoring command to %d, already in that state.\n", millis(), newVal);
         WEBLOG("Request ignored: Gate is already %s", newVal == 0 ? "OPEN" : "CLOSED");
       }
     }
@@ -102,6 +105,7 @@ struct GateController : Service::GarageDoorOpener {
         // Flash logic DISABLED for native LED test
       } else {
         // Pulse Complete
+        Serial.printf("[%lu] DEBUG: Pulse complete. Setting relay HIGH. Elapsed: %lu\n", millis(), elapsed);
         digitalWrite(RELAY_PIN, HIGH);  // Relay OFF
         pulseStartTime = 0;
         WEBLOG("Relay pulse complete.");
@@ -116,10 +120,12 @@ struct GateController : Service::GarageDoorOpener {
   }
 
   void triggerRelay() {
+    Serial.printf("[%lu] DEBUG: triggerRelay() called. PIN %d state before: %d\n", millis(), RELAY_PIN, digitalRead(RELAY_PIN));
     WEBLOG("Pulsing relay...");
     digitalWrite(RELAY_PIN, LOW);  // Relay ON
     pulseStartTime = millis();
     if (pulseStartTime == 0) pulseStartTime = 1;  // Prevent 0
+    Serial.printf("[%lu] DEBUG: Relay set LOW (ON). pulseStartTime set to: %lu\n", millis(), pulseStartTime);
   }
 
   void syncSensor() {
